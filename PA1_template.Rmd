@@ -5,21 +5,83 @@ output:
     keep_md: true
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+```
 
 ## Loading and preprocessing the data
-
-
-
+```{r}
+repData <- read.csv("./activity.csv") ##Set the directory where data are stored                                          as working directory.
+repData$date <- as.Date(repData$date)
+repData$steps <- as.numeric(repData$steps)
+repData$interval <- as.numeric(repData$interval)
+str(repData)
+##repData$date <- as.Date(as.character(repData$date), format = "%Y/%m/%d")
+```
 ## What is mean total number of steps taken per day?
+```{r}
+repData2 <- repData[which(!is.na(repData$steps)),]
+day.sum <- tapply(repData2$steps, repData2$date, sum)
+hist(day.sum, 10, main ="Total steps per day")
+```
 
-
+The mean steps taken per day is `r mean(day.sum)` steps and the median amount of steps taken per day is `r median(day.sum)` steps.
 
 ## What is the average daily activity pattern?
+```{r}
+interval.activity <- repData2 %>% group_by(interval) %>% summarize(avg_steps = mean(steps))
+ggplot(data = interval.activity, aes(interval, avg_steps)) + geom_line()
 
-
+print(max(interval.activity$avg_steps))
+```
+The interval `r interval.activity[interval.activity$avg_steps==max(interval.activity$avg_steps),1]` has the highest average amount of steps. There is on average `r max(interval.activity$avg_steps)` steps for this interval.  
 
 ## Imputing missing values
+```{r}
+dailyact <- tapply(repData2$steps, repData2$interval, mean)
+missing <- sum(is.na(repData))
+repData3 <- repData
+repData3[which(is.na(repData3$steps)),1] <-  dailyact[as.character(repData3[which(is.na(repData3$steps)),3])]
+sum(is.na(repData3))
 
 
+new.sum <- tapply(repData3$steps, repData3$date, sum)
+hist(day.sum,10, main = "Total number of steps taken per day", xlab = "Steps"
+     , ylim =c(0, 25))
+abline(v = median(new.sum), col = 4, lwd = 4)
+hist(new.sum,10, main = "Total number of steps taken per day  
+     (missing values replaced with mean of interval)", xlab = "Steps",
+     ylim =c(0, 25))
+abline(v = median(new.sum), col = 4, lwd = 4)
+
+mean(new.sum)
+median(new.sum)
+mean(new.sum) - mean(day.sum)
+median(new.sum) - median(day.sum)
+
+```
+
+There are `r sum(is.na(repData))` observations missing. The mean steps taken per day, with the NA values replaced with the interval average, is `r mean(new.sum)` steps and the median steps taken is `r median(new.sum)`. There is no difference between the average steps taken per day when NA's are replaced, and about a one step difference in the median.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+repData3$wd<-weekdays(repData3$date)
+repData3$fwd<- as.factor(c("weekend", "weekday"))
+repData3[repData3$wd == "Sunday" | repData3$wd == "Saturday" ,5]<- factor("weekend")
+repData3[!(repData3$wd == "Sunday" | repData3$wd == "Saturday"),5 ]<- factor("weekday")
+
+repData3_we <- subset(repData3, fwd == "weekend") 
+repData3_wd <- subset(repData3, fwd == "weekday") 
+dailyact_we<-tapply(repData3_we$steps, repData3_we$interval, mean)
+dailyact_wd<-tapply(repData3_wd$steps, repData3_wd$interval, mean)
+par(mfrow=c(2,1))
+plot(y = dailyact_wd, x = names(dailyact_wd), type = "l", xlab = "5-Minute Interval", 
+     main = "Daily Activity Pattern on Weekdays", ylab = "Average number of steps", 
+     ylim =c(0, 250))
+plot(y = dailyact_we, x = names(dailyact_we), type = "l", xlab = "5-Minute Interval", 
+     main = "Daily Activity Pattern on Weekends", ylab = "Average number of steps", 
+     ylim =c(0, 250))
+```
